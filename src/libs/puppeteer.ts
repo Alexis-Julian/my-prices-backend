@@ -1,13 +1,13 @@
-import puppeteer from 'puppeteer';
+// import puppeteer from 'puppeteer';
+import { chromium } from 'playwright';
+
 export async function ScrapingPuppeteer(URL: string, FunctionScrapping) {
-  const browser = await puppeteer.launch({
-    headless: true, // (No abrir navegador) True or False
-    slowMo: 600, // Tiempo de espera
-  });
+  const browser = await chromium.launch();
 
   const page = await browser.newPage();
-  await page.goto(URL);
-  // await page.waitForNavigation();
+  await page.goto(URL, {
+    waitUntil: 'networkidle',
+  });
 
   const result = await page.evaluate(FunctionScrapping);
 
@@ -127,34 +127,75 @@ export async function GET_PRODUCT_CARREFOUR(name: string) {
   const URL = `https://www.carrefour.com.ar/${name}?_q=${name}&map=ft`;
 
   function SearchProductCarrefour() {
-    console.log(
-      document.querySelectorAll(
-        '.vtex-product-summary-2-x-productBrand vtex-product-summary-2-x-brandName',
-      ),
-    );
-    const productsUL: HTMLElement = document.querySelector(
-      '.valtech-carrefourar-search-result-0-x-gallery ',
-    );
+    function AplanarPrecio(elementHTML) {
+      let precio: string;
 
-    const productsLI: NodeListOf<HTMLElement> = productsUL.querySelectorAll(
+      elementHTML.map((e) => {
+        precio += e.innerHTML;
+      });
+
+      precio = String(precio).split(';')[1];
+
+      return precio;
+    }
+
+    const ArticlesProducts = document.querySelectorAll(
       '.valtech-carrefourar-search-result-0-x-galleryItem',
     );
-    // console.log(productsLI);
-    Array.from(productsLI).map((element) => {
+
+    const ListaProductos = Array.from(ArticlesProducts);
+
+    const data = ListaProductos.map((producto) => {
+      let productoObject = {};
+      let precio: string;
+
       try {
-        console.log(element.querySelector('article'));
-      } catch (err) {
-        console.log(err.message);
+        const descripcion = producto.querySelector(
+          '.vtex-product-summary-2-x-productBrand',
+        ).innerHTML;
+        productoObject = { descripcion };
+
+        const imagen = producto.querySelector('img').src;
+        productoObject = { ...productoObject, imagen };
+
+        const precioLista = producto.querySelector(
+          '.valtech-carrefourar-product-price-0-x-listPrice',
+        );
+
+        if (precioLista) {
+          const ContenedorPrecio = producto.querySelector(
+            '.valtech-carrefourar-product-price-0-x-sellingPriceValue',
+          );
+
+          const porcentaje = ContenedorPrecio.querySelector(
+            '.valtech-carrefourar-product-price-0-x-discountPercentage ',
+          ).innerHTML;
+
+          const precioOferta = ContenedorPrecio.querySelector(
+            '.valtech-carrefourar-product-price-0-x-currencyContainer',
+          );
+          precio = AplanarPrecio(Array.from(precioOferta.children));
+
+          productoObject = { ...productoObject, precio, porcentaje };
+        } else {
+          const precioSinOferta = producto.querySelector(
+            '.valtech-carrefourar-product-price-0-x-currencyContainer',
+          );
+          precio = AplanarPrecio(Array.from(precioSinOferta.children));
+
+          productoObject = { ...productoObject, precio };
+        }
+
+        return productoObject;
+      } catch (e) {
+        return {
+          message: e.message,
+          data: null,
+        };
       }
     });
-    /* console.log(Array.from(probando));
 
-    products = Array.from(products);
-    console.log(products);
-    products.map((e) => {
-      console.log(e);
-    });
-    console.log(products); */
+    return data;
   }
 
   const data = await ScrapingPuppeteer(URL, SearchProductCarrefour);

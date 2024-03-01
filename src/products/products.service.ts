@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { GET_PRODUCT_COTO } from 'src/libs/puppeteer';
+import { GET_PRODUCT_CARREFOUR, GET_PRODUCT_COTO } from 'src/libs/puppeteer';
 
 @Injectable()
 export class ProductsService {
@@ -12,7 +12,7 @@ export class ProductsService {
   }
 
   async findOne(product: string) {
-    const products = await GET_PRODUCT_COTO(product);
+    const products = await GET_PRODUCT_CARREFOUR(product);
 
     return products;
   }
